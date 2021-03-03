@@ -1,0 +1,65 @@
+name: 'build-rpm'
+description: 'Builds an RPM package'
+inputs:
+  files:
+    description: 'Files that we ship with this'
+    required: true
+  release:
+    description: 'Release number'
+    required: true
+    default: '1'
+  package:
+    description: 'Name of package'
+    required: true
+  version:
+    required: true
+    description: 'Version'
+  license:
+    required: true
+    description: 'License'
+  architecture:
+    required: true
+    description: 'Architecture'
+    default: 'x86_64'
+  maintainer:
+    required: true
+    description: 'Maintainer'
+  website:
+    required: true
+    description: 'Home page'
+  summary:
+    required: true
+    description: 'Summary of package'
+  description:
+    required: false
+    description: 'Long description'
+  before-install:
+    required: false
+    description: 'Script to run before installation'
+  after-install:
+    required: false
+    description: 'Script to run after installation'
+  before-upgrade:
+    required: false
+    description: 'Script to run before upgrade'
+  after-upgrade:
+    required: false
+    description: 'Script to run after upgrade'
+  before-remove:
+    required: false
+    description: 'Script to run before removal'
+  after-remove:
+    required: false
+    description: 'Script to run after removal'
+  after-purge:
+    required: false
+    description: 'Script to run after purge'
+  user:
+    required: false
+    description: 'User to install files as'
+  group:
+    required: false
+    description: 'Group to install files as'
+runs:
+  using: 'node12'
+  main: 'dist/index.js'
