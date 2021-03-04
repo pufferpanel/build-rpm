@@ -60,6 +60,9 @@ inputs:
   group:
     required: false
     description: 'Group to install files as'
+outputs:
+  file:
+    description: 'Resulting file'
 runs:
   using: 'node12'
   main: 'dist/index.js'
