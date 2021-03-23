@@ -2,7 +2,7 @@
   "name": "build-rpm",
   "version": "1.0.0",
   "description": "Builds RPM files for Github Actions",
-  "main": "index.js",
+  "main": "dist/index.js",
   "keywords": [],
   "author": "",
   "license": "Apache v2",

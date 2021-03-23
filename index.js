@@ -123,10 +123,10 @@ _install() {
     :
 ${beforeInstall}
 }
-if [ "${1}" -eq 1 ]
+if [ "\${1}" -eq 1 ]
 then
     _install
-elif [ "${1}" -gt 1 ]
+elif [ "\${1}" -gt 1 ]
 then
     upgrade
 fi
@@ -140,23 +140,23 @@ _install() {
     :
 ${afterInstall}
 }
-if [ "${1}" -eq 1 ]
+if [ "\${1}" -eq 1 ]
 then
     _install
-elif [ "${1}" -gt 1 ]
+elif [ "\${1}" -gt 1 ]
 then
     upgrade
 fi
 
 %preun
-if [ "${1}" -eq 0 ]
+if [ "\${1}" -eq 0 ]
 then
     :
 ${beforeUninstall}
 fi
 
 %postun
-if [ "${1}" -eq 0 ]
+if [ "\${1}" -eq 0 ]
 then
     :
 ${afterUninstall}
