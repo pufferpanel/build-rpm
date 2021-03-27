@@ -77,6 +77,7 @@ async function buildSpecFile() {
     const afterUninstall = await readFile(core.getInput('after-remove'));
     const beforeUpgrade = await readFile(core.getInput('before-upgrade'));
     const afterUpgrade = await readFile(core.getInput('after-upgrade'));
+    const suggestedPackages = getSuggestedPackages();
 
     const neededFiles = [];
     files.forEach(v => neededFiles.push(v));
@@ -89,6 +90,7 @@ License:        ${license}
 URL:            ${website}
 Source0:        %{name}-%{version}.tar.gz
 BuildArch:      ${architecture}
+${suggestedPackages}
 
 %description
 ${description}
@@ -192,6 +194,27 @@ async function getFileList() {
 async function readFile(file) {
     if (file && file !== '') {
         return fs.readFileSync(file).toString();
+    }
+    return '';
+}
+
+/**
+ * Parses the "suggested-packages" input to be a list of packages that will be
+ * included as the list of suggested packages
+ *
+ * @return {String}
+ */
+function getSuggestedPackages() {
+    const packages = core.getInput('suggested-packages').split(/\r?\n/).reduce(
+        (acc, line) =>
+            acc
+                .concat(line.split(','))
+                .map(p => p.trim()),
+        []
+    );
+
+    if (packages.length > 0) {
+        return 'Suggests: ' + packages.join(' ');
     }
     return '';
 }
