@@ -63,6 +63,9 @@ inputs:
   suggested-packages:
     required: false
     description: 'Other packages to be suggested by the package manager'
+  config:
+    description: 'Config files'
+    required: false
 outputs:
   file:
     description: 'Resulting file'
