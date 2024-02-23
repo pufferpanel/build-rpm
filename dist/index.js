@@ -1,240 +1,7 @@
-module.exports =
 /******/ (() => { // webpackBootstrap
 /******/ 	var __webpack_modules__ = ({
 
-/***/ 763:
-/***/ ((__unused_webpack_module, __unused_webpack_exports, __nccwpck_require__) => {
-
-const core = __nccwpck_require__(115);
-const exec = __nccwpck_require__(812);
-const fs = __nccwpck_require__(747);
-const path = __nccwpck_require__(622);
-
-async function main() {
-    //several things need to happen to make this work
-
-    //step 1 is we need a SPEC file that lists everything
-    //  this step needs to do some things:
-    //  - generate the "list" of files
-    //  - create the pre/post scripts we need
-    //  - populate the rest of the template data
-    //step 2 is making a tar and moving the tar to the source folder
-    //  - for this, we will use the list provided by the mapping
-    //step 3 is build it
-
-    const packageName = core.getInput('package');
-    const version = core.getInput('version');
-    const release = core.getInput('release');
-    const architecture = core.getInput('architecture');
-
-    const rootDir = '/tmp/rpmbuild';
-
-    const sourceDir = `${rootDir}/SOURCES/${packageName}-${version}`;
-
-    fs.mkdirSync(`${rootDir}/BUILD`, {recursive: true});
-    fs.mkdirSync(`${rootDir}/BUILDROOT`, {recursive: true});
-    fs.mkdirSync(`${rootDir}/RPMS`, {recursive: true});
-    fs.mkdirSync(`${rootDir}/SOURCES`, {recursive: true});
-    fs.mkdirSync(`${rootDir}/SPECS`, {recursive: true});
-    fs.mkdirSync(`${rootDir}/SRPMS`, {recursive: true});
-    fs.mkdirSync(`${rootDir}/BUILD`, {recursive: true});
-    fs.mkdirSync(sourceDir, {recursive: true});
-
-    //move the files that are specified to the correct path
-    const files = await getFileList();
-    const paths = [];
-    files.forEach((v, k) => {
-        console.log(`Copying ${k} to ${v}`);
-        //we need to create the target directory, which is the parent
-        fs.mkdirSync(path.dirname(path.join(sourceDir, v.substr(1))), {recursive: true});
-        paths.push([k, path.join(sourceDir, v.substr(1))]);
-    });
-
-    for (let v in paths) {
-        const val = paths[v];
-        await exec.exec('bash', ['-c', `cp -r ${val[0]} ${val[1]}`]);
-    }
-
-    await exec.exec('tar', ['-zcf', `${packageName}-${version}.tar.gz`, `${packageName}-${version}`], {cwd: `${rootDir}/SOURCES`});
-
-    fs.writeFileSync(`${packageName}-${version}.spec`, await buildSpecFile());
-    await exec.exec('rpmbuild', ['-bb', '--define', `_topdir ${rootDir}`, '--define',
-        `_rpmfilename ${packageName}-${version}-${release}.${architecture}.rpm`, `${packageName}-${version}.spec`]);
-    //fs.unlinkSync(`${packageName}-${version}.spec`);
-
-    //give them the file back
-    core.setOutput('file', `${rootDir}/RPMS/${packageName}-${version}-${release}.${architecture}.rpm`);
-}
-
-async function buildSpecFile() {
-    const neededFiles = [];
-    (await getFileList()).forEach(v => neededFiles.push(v));
-
-    return `Name:           ${core.getInput('package')}
-Version:        ${core.getInput('version')}
-Release:        ${core.getInput('release')}%{?dist}
-Summary:        ${core.getInput('summary')}
-License:        ${core.getInput('license')}
-URL:            ${core.getInput('website')}
-Source0:        %{name}-%{version}.tar.gz
-BuildArch:      ${core.getInput('architecture')}
-${getSuggestedPackages()}
-
-%description
-${core.getInput('description')}
-
-%global debug_package %{nil}
-
-%prep
-%setup -q
-
-%build
-
-%install
-#for the files, we just need everything, we can just push it all without concern
-rm -rf $RPM_BUILD_ROOT
-mkdir $RPM_BUILD_ROOT
-cp -r * $RPM_BUILD_ROOT
-
-%clean
-rm -rf $RPM_BUILD_ROOT
-
-%files
-${neededFiles.join('\n')}
-
-${getConfigFiles()}
-
-%changelog
-
-%pre
-upgrade() {
-    :
-${await readFile(core.getInput('before-upgrade'))}
-}
-_install() {
-    :
-${await readFile(core.getInput('before-install'))}
-}
-if [ "\${1}" -eq 1 ]
-then
-    _install
-elif [ "\${1}" -gt 1 ]
-then
-    upgrade
-fi
-
-%post
-upgrade() {
-    :
-${await readFile(core.getInput('after-upgrade'))}
-}
-_install() {
-    :
-${await readFile(core.getInput('after-install'))}
-}
-if [ "\${1}" -eq 1 ]
-then
-    _install
-elif [ "\${1}" -gt 1 ]
-then
-    upgrade
-fi
-
-%preun
-if [ "\${1}" -eq 0 ]
-then
-    :
-${await readFile(core.getInput('before-remove'))}
-fi
-
-%postun
-if [ "\${1}" -eq 0 ]
-then
-    :
-${await readFile(core.getInput('after-remove'))}
-fi
-`
-}
-
-/**
- * Parses the "files" input to be an array of files that will be included in the
- * %files spec. Key is the source file
- *
- * @returns {Promise<Map<string,string>>}
- */
-async function getFileList() {
-    const files = getList('files')
-
-    const result = new Map();
-    files.forEach(k => {
-        const parts = k.split(':');
-        result.set(parts[0], parts[1]);
-    });
-
-    return result;
-}
-
-async function readFile(file) {
-    if (file && file !== '') {
-        return fs.readFileSync(file).toString();
-    }
-    return '';
-}
-
-/**
- * Parses the "suggested-packages" input to be a list of packages that will be
- * included as the list of suggested packages
- *
- * @return {String}
- */
-function getSuggestedPackages() {
-    const packages = getList('suggested-packages');
-
-    if (packages.length > 0) {
-        return 'Suggests: ' + packages.join(' ');
-    }
-    return '';
-}
-
-function getConfigFiles() {
-    const files = getList('config');
-
-    const result = [];
-    files.forEach(k => {
-        let parts = k.split(':');
-        if (parts.length === 1) {
-            result.push('%config ' + parts[0]);
-        } else {
-            result.push('%config(' + parts[1] + ') ' + parts[0]);
-        }
-    });
-
-    return result.join('\r\n');
-}
-
-/**
- * Get a list from the input
- *
- * @param key String
- * @returns {string[]}
- */
-function getList(key) {
-    return core.getInput(key).split(/\r?\n/).reduce(
-        (acc, line) =>
-            acc
-                .concat(line.split(","))
-                .filter(pat => pat)
-                .map(pat => pat.trim()),
-        []
-    );
-}
-
-main().catch(e => core.setFailed(e.message));
-
-
-/***/ }),
-
-/***/ 453:
+/***/ 686:
 /***/ (function(__unused_webpack_module, exports, __nccwpck_require__) {
 
 "use strict";
@@ -247,8 +14,8 @@ var __importStar = (this && this.__importStar) || function (mod) {
     return result;
 };
 Object.defineProperty(exports, "__esModule", ({ value: true }));
-const os = __importStar(__nccwpck_require__(87));
-const utils_1 = __nccwpck_require__(375);
+const os = __importStar(__nccwpck_require__(37));
+const utils_1 = __nccwpck_require__(138);
 /**
  * Commands
  *
@@ -320,7 +87,7 @@ function escapeProperty(s) {
 
 /***/ }),
 
-/***/ 115:
+/***/ 430:
 /***/ (function(__unused_webpack_module, exports, __nccwpck_require__) {
 
 "use strict";
@@ -342,11 +109,11 @@ var __importStar = (this && this.__importStar) || function (mod) {
     return result;
 };
 Object.defineProperty(exports, "__esModule", ({ value: true }));
-const command_1 = __nccwpck_require__(453);
-const file_command_1 = __nccwpck_require__(403);
-const utils_1 = __nccwpck_require__(375);
-const os = __importStar(__nccwpck_require__(87));
-const path = __importStar(__nccwpck_require__(622));
+const command_1 = __nccwpck_require__(686);
+const file_command_1 = __nccwpck_require__(43);
+const utils_1 = __nccwpck_require__(138);
+const os = __importStar(__nccwpck_require__(37));
+const path = __importStar(__nccwpck_require__(17));
 /**
  * The code to exit an action
  */
@@ -565,7 +332,7 @@ exports.getState = getState;
 
 /***/ }),
 
-/***/ 403:
+/***/ 43:
 /***/ (function(__unused_webpack_module, exports, __nccwpck_require__) {
 
 "use strict";
@@ -581,9 +348,9 @@ var __importStar = (this && this.__importStar) || function (mod) {
 Object.defineProperty(exports, "__esModule", ({ value: true }));
 // We use any as a valid input type
 /* eslint-disable @typescript-eslint/no-explicit-any */
-const fs = __importStar(__nccwpck_require__(747));
-const os = __importStar(__nccwpck_require__(87));
-const utils_1 = __nccwpck_require__(375);
+const fs = __importStar(__nccwpck_require__(147));
+const os = __importStar(__nccwpck_require__(37));
+const utils_1 = __nccwpck_require__(138);
 function issueCommand(command, message) {
     const filePath = process.env[`GITHUB_${command}`];
     if (!filePath) {
@@ -601,7 +368,7 @@ exports.issueCommand = issueCommand;
 
 /***/ }),
 
-/***/ 375:
+/***/ 138:
 /***/ ((__unused_webpack_module, exports) => {
 
 "use strict";
@@ -627,7 +394,7 @@ exports.toCommandValue = toCommandValue;
 
 /***/ }),
 
-/***/ 812:
+/***/ 973:
 /***/ (function(__unused_webpack_module, exports, __nccwpck_require__) {
 
 "use strict";
@@ -649,7 +416,7 @@ var __importStar = (this && this.__importStar) || function (mod) {
     return result;
 };
 Object.defineProperty(exports, "__esModule", ({ value: true }));
-const tr = __importStar(__nccwpck_require__(561));
+const tr = __importStar(__nccwpck_require__(970));
 /**
  * Exec a command.
  * Output will be streamed to the live console.
@@ -678,7 +445,7 @@ exports.exec = exec;
 
 /***/ }),
 
-/***/ 561:
+/***/ 970:
 /***/ (function(__unused_webpack_module, exports, __nccwpck_require__) {
 
 "use strict";
@@ -700,12 +467,12 @@ var __importStar = (this && this.__importStar) || function (mod) {
     return result;
 };
 Object.defineProperty(exports, "__esModule", ({ value: true }));
-const os = __importStar(__nccwpck_require__(87));
-const events = __importStar(__nccwpck_require__(614));
-const child = __importStar(__nccwpck_require__(129));
-const path = __importStar(__nccwpck_require__(622));
-const io = __importStar(__nccwpck_require__(882));
-const ioUtil = __importStar(__nccwpck_require__(885));
+const os = __importStar(__nccwpck_require__(37));
+const events = __importStar(__nccwpck_require__(361));
+const child = __importStar(__nccwpck_require__(81));
+const path = __importStar(__nccwpck_require__(17));
+const io = __importStar(__nccwpck_require__(493));
+const ioUtil = __importStar(__nccwpck_require__(938));
 /* eslint-disable @typescript-eslint/unbound-method */
 const IS_WINDOWS = process.platform === 'win32';
 /*
@@ -1285,7 +1052,7 @@ class ExecState extends events.EventEmitter {
 
 /***/ }),
 
-/***/ 885:
+/***/ 938:
 /***/ (function(__unused_webpack_module, exports, __nccwpck_require__) {
 
 "use strict";
@@ -1301,9 +1068,9 @@ var __awaiter = (this && this.__awaiter) || function (thisArg, _arguments, P, ge
 };
 var _a;
 Object.defineProperty(exports, "__esModule", ({ value: true }));
-const assert_1 = __nccwpck_require__(357);
-const fs = __nccwpck_require__(747);
-const path = __nccwpck_require__(622);
+const assert_1 = __nccwpck_require__(491);
+const fs = __nccwpck_require__(147);
+const path = __nccwpck_require__(17);
 _a = fs.promises, exports.chmod = _a.chmod, exports.copyFile = _a.copyFile, exports.lstat = _a.lstat, exports.mkdir = _a.mkdir, exports.readdir = _a.readdir, exports.readlink = _a.readlink, exports.rename = _a.rename, exports.rmdir = _a.rmdir, exports.stat = _a.stat, exports.symlink = _a.symlink, exports.unlink = _a.unlink;
 exports.IS_WINDOWS = process.platform === 'win32';
 function exists(fsPath) {
@@ -1487,7 +1254,7 @@ function isUnixExecutable(stats) {
 
 /***/ }),
 
-/***/ 882:
+/***/ 493:
 /***/ (function(__unused_webpack_module, exports, __nccwpck_require__) {
 
 "use strict";
@@ -1502,10 +1269,10 @@ var __awaiter = (this && this.__awaiter) || function (thisArg, _arguments, P, ge
     });
 };
 Object.defineProperty(exports, "__esModule", ({ value: true }));
-const childProcess = __nccwpck_require__(129);
-const path = __nccwpck_require__(622);
-const util_1 = __nccwpck_require__(669);
-const ioUtil = __nccwpck_require__(885);
+const childProcess = __nccwpck_require__(81);
+const path = __nccwpck_require__(17);
+const util_1 = __nccwpck_require__(837);
+const ioUtil = __nccwpck_require__(938);
 const exec = util_1.promisify(childProcess.exec);
 /**
  * Copies a file or folder.
@@ -1784,59 +1551,59 @@ function copyFile(srcFile, destFile, force) {
 
 /***/ }),
 
-/***/ 357:
+/***/ 491:
 /***/ ((module) => {
 
 "use strict";
-module.exports = require("assert");;
+module.exports = require("assert");
 
 /***/ }),
 
-/***/ 129:
+/***/ 81:
 /***/ ((module) => {
 
 "use strict";
-module.exports = require("child_process");;
+module.exports = require("child_process");
 
 /***/ }),
 
-/***/ 614:
+/***/ 361:
 /***/ ((module) => {
 
 "use strict";
-module.exports = require("events");;
+module.exports = require("events");
 
 /***/ }),
 
-/***/ 747:
+/***/ 147:
 /***/ ((module) => {
 
 "use strict";
-module.exports = require("fs");;
+module.exports = require("fs");
 
 /***/ }),
 
-/***/ 87:
+/***/ 37:
 /***/ ((module) => {
 
 "use strict";
-module.exports = require("os");;
+module.exports = require("os");
 
 /***/ }),
 
-/***/ 622:
+/***/ 17:
 /***/ ((module) => {
 
 "use strict";
-module.exports = require("path");;
+module.exports = require("path");
 
 /***/ }),
 
-/***/ 669:
+/***/ 837:
 /***/ ((module) => {
 
 "use strict";
-module.exports = require("util");;
+module.exports = require("util");
 
 /***/ })
 
@@ -1848,8 +1615,9 @@ module.exports = require("util");;
 /******/ 	// The require function
 /******/ 	function __nccwpck_require__(moduleId) {
 /******/ 		// Check if module is in cache
-/******/ 		if(__webpack_module_cache__[moduleId]) {
-/******/ 			return __webpack_module_cache__[moduleId].exports;
+/******/ 		var cachedModule = __webpack_module_cache__[moduleId];
+/******/ 		if (cachedModule !== undefined) {
+/******/ 			return cachedModule.exports;
 /******/ 		}
 /******/ 		// Create a new module (and put it into the cache)
 /******/ 		var module = __webpack_module_cache__[moduleId] = {
@@ -1874,10 +1642,242 @@ module.exports = require("util");;
 /************************************************************************/
 /******/ 	/* webpack/runtime/compat */
 /******/ 	
-/******/ 	__nccwpck_require__.ab = __dirname + "/";/************************************************************************/
-/******/ 	// module exports must be returned from runtime so entry inlining is disabled
-/******/ 	// startup
-/******/ 	// Load entry module and return exports
-/******/ 	return __nccwpck_require__(763);
+/******/ 	if (typeof __nccwpck_require__ !== 'undefined') __nccwpck_require__.ab = __dirname + "/";
+/******/ 	
+/************************************************************************/
+var __webpack_exports__ = {};
+// This entry need to be wrapped in an IIFE because it need to be isolated against other modules in the chunk.
+(() => {
+const core = __nccwpck_require__(430);
+const exec = __nccwpck_require__(973);
+const fs = __nccwpck_require__(147);
+const path = __nccwpck_require__(17);
+
+async function main() {
+    //several things need to happen to make this work
+
+    //step 1 is we need a SPEC file that lists everything
+    //  this step needs to do some things:
+    //  - generate the "list" of files
+    //  - create the pre/post scripts we need
+    //  - populate the rest of the template data
+    //step 2 is making a tar and moving the tar to the source folder
+    //  - for this, we will use the list provided by the mapping
+    //step 3 is build it
+
+    const packageName = core.getInput('package');
+    const version = core.getInput('version');
+    const release = core.getInput('release');
+    const architecture = core.getInput('architecture');
+
+    const rootDir = '/tmp/rpmbuild';
+
+    const sourceDir = `${rootDir}/SOURCES/${packageName}-${version}`;
+
+    fs.mkdirSync(`${rootDir}/BUILD`, {recursive: true});
+    fs.mkdirSync(`${rootDir}/BUILDROOT`, {recursive: true});
+    fs.mkdirSync(`${rootDir}/RPMS`, {recursive: true});
+    fs.mkdirSync(`${rootDir}/SOURCES`, {recursive: true});
+    fs.mkdirSync(`${rootDir}/SPECS`, {recursive: true});
+    fs.mkdirSync(`${rootDir}/SRPMS`, {recursive: true});
+    fs.mkdirSync(`${rootDir}/BUILD`, {recursive: true});
+    fs.mkdirSync(sourceDir, {recursive: true});
+
+    //move the files that are specified to the correct path
+    const files = await getFileList();
+    const paths = [];
+    files.forEach((v, k) => {
+        console.log(`Copying ${k} to ${v}`);
+        //we need to create the target directory, which is the parent
+        fs.mkdirSync(path.dirname(path.join(sourceDir, v.substr(1))), {recursive: true});
+        paths.push([k, path.join(sourceDir, v.substr(1))]);
+    });
+
+    for (let v in paths) {
+        const val = paths[v];
+        await exec.exec('bash', ['-c', `cp -r ${val[0]} ${val[1]}`]);
+    }
+
+    await exec.exec('tar', ['-zcf', `${packageName}-${version}.tar.gz`, `${packageName}-${version}`], {cwd: `${rootDir}/SOURCES`});
+
+    fs.writeFileSync(`${packageName}-${version}.spec`, await buildSpecFile());
+    await exec.exec('rpmbuild', ['-bb', '--define', `_topdir ${rootDir}`, '--define',
+        `_rpmfilename ${packageName}-${version}-${release}.${architecture}.rpm`, `${packageName}-${version}.spec`]);
+    //fs.unlinkSync(`${packageName}-${version}.spec`);
+
+    //give them the file back
+    core.setOutput('file', `${rootDir}/RPMS/${packageName}-${version}-${release}.${architecture}.rpm`);
+}
+
+async function buildSpecFile() {
+    const version = core.getInput('version').replace("-", "~");
+
+    const neededFiles = [];
+    (await getFileList()).forEach(v => neededFiles.push(v));
+
+    return `Name:           ${core.getInput('package')}
+Version:        ${version}
+Release:        ${core.getInput('release')}%{?dist}
+Summary:        ${core.getInput('summary')}
+License:        ${core.getInput('license')}
+URL:            ${core.getInput('website')}
+Source0:        %{name}-%{version}.tar.gz
+BuildArch:      ${core.getInput('architecture')}
+${getSuggestedPackages()}
+
+%description
+${core.getInput('description')}
+
+%global debug_package %{nil}
+
+%prep
+%setup -q
+
+%build
+
+%install
+#for the files, we just need everything, we can just push it all without concern
+rm -rf $RPM_BUILD_ROOT
+mkdir $RPM_BUILD_ROOT
+cp -r * $RPM_BUILD_ROOT
+
+%clean
+rm -rf $RPM_BUILD_ROOT
+
+%files
+${neededFiles.join('\n')}
+
+${getConfigFiles()}
+
+%changelog
+
+%pre
+upgrade() {
+    :
+${await readFile(core.getInput('before-upgrade'))}
+}
+_install() {
+    :
+${await readFile(core.getInput('before-install'))}
+}
+if [ "\${1}" -eq 1 ]
+then
+    _install
+elif [ "\${1}" -gt 1 ]
+then
+    upgrade
+fi
+
+%post
+upgrade() {
+    :
+${await readFile(core.getInput('after-upgrade'))}
+}
+_install() {
+    :
+${await readFile(core.getInput('after-install'))}
+}
+if [ "\${1}" -eq 1 ]
+then
+    _install
+elif [ "\${1}" -gt 1 ]
+then
+    upgrade
+fi
+
+%preun
+if [ "\${1}" -eq 0 ]
+then
+    :
+${await readFile(core.getInput('before-remove'))}
+fi
+
+%postun
+if [ "\${1}" -eq 0 ]
+then
+    :
+${await readFile(core.getInput('after-remove'))}
+fi
+`
+}
+
+/**
+ * Parses the "files" input to be an array of files that will be included in the
+ * %files spec. Key is the source file
+ *
+ * @returns {Promise<Map<string,string>>}
+ */
+async function getFileList() {
+    const files = getList('files')
+
+    const result = new Map();
+    files.forEach(k => {
+        const parts = k.split(':');
+        result.set(parts[0], parts[1]);
+    });
+
+    return result;
+}
+
+async function readFile(file) {
+    if (file && file !== '') {
+        return fs.readFileSync(file).toString();
+    }
+    return '';
+}
+
+/**
+ * Parses the "suggested-packages" input to be a list of packages that will be
+ * included as the list of suggested packages
+ *
+ * @return {String}
+ */
+function getSuggestedPackages() {
+    const packages = getList('suggested-packages');
+
+    if (packages.length > 0) {
+        return 'Suggests: ' + packages.join(' ');
+    }
+    return '';
+}
+
+function getConfigFiles() {
+    const files = getList('config');
+
+    const result = [];
+    files.forEach(k => {
+        let parts = k.split(':');
+        if (parts.length === 1) {
+            result.push('%config ' + parts[0]);
+        } else {
+            result.push('%config(' + parts[1] + ') ' + parts[0]);
+        }
+    });
+
+    return result.join('\r\n');
+}
+
+/**
+ * Get a list from the input
+ *
+ * @param key String
+ * @returns {string[]}
+ */
+function getList(key) {
+    return core.getInput(key).split(/\r?\n/).reduce(
+        (acc, line) =>
+            acc
+                .concat(line.split(","))
+                .filter(pat => pat)
+                .map(pat => pat.trim()),
+        []
+    );
+}
+
+main().catch(e => core.setFailed(e.message));
+
+})();
+
+module.exports = __webpack_exports__;
 /******/ })()
 ;

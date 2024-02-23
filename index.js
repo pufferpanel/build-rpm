@@ -60,11 +60,13 @@ async function main() {
 }
 
 async function buildSpecFile() {
+    const version = core.getInput('version').replace("-", "~");
+
     const neededFiles = [];
     (await getFileList()).forEach(v => neededFiles.push(v));
 
     return `Name:           ${core.getInput('package')}
-Version:        ${core.getInput('version')}
+Version:        ${version}
 Release:        ${core.getInput('release')}%{?dist}
 Summary:        ${core.getInput('summary')}
 License:        ${core.getInput('license')}
