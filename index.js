@@ -50,7 +50,7 @@ async function main() {
 
     await exec.exec('tar', ['-zcf', `${packageName}-${version}.tar.gz`, `${packageName}-${version}`], {cwd: `${rootDir}/SOURCES`});
 
-    fs.writeFileSync(`${packageName}-${version}.spec`, await buildSpecFile());
+    fs.writeFileSync(`${packageName}-${version}.spec`, await buildSpecFile(version));
     await exec.exec('rpmbuild', ['-bb', '--define', `_topdir ${rootDir}`, '--define',
         `_rpmfilename ${packageName}-${version}-${release}.${architecture}.rpm`, `${packageName}-${version}.spec`]);
     //fs.unlinkSync(`${packageName}-${version}.spec`);
