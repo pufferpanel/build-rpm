@@ -16,7 +16,7 @@ async function main() {
     //step 3 is build it
 
     const packageName = core.getInput('package');
-    const version = core.getInput('version');
+    const version = core.getInput('version').replace("-", "~");
     const release = core.getInput('release');
     const architecture = core.getInput('architecture');
 
@@ -59,8 +59,7 @@ async function main() {
     core.setOutput('file', `${rootDir}/RPMS/${packageName}-${version}-${release}.${architecture}.rpm`);
 }
 
-async function buildSpecFile() {
-    const version = core.getInput('version').replace("-", "~");
+async function buildSpecFile(version) {
 
     const neededFiles = [];
     (await getFileList()).forEach(v => neededFiles.push(v));
