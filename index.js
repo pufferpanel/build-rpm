@@ -30,7 +30,6 @@ async function main() {
     fs.mkdirSync(`${rootDir}/SOURCES`, {recursive: true});
     fs.mkdirSync(`${rootDir}/SPECS`, {recursive: true});
     fs.mkdirSync(`${rootDir}/SRPMS`, {recursive: true});
-    fs.mkdirSync(`${rootDir}/BUILD`, {recursive: true});
     fs.mkdirSync(sourceDir, {recursive: true});
 
     //move the files that are specified to the correct path
@@ -71,7 +70,6 @@ Summary:        ${core.getInput('summary')}
 License:        ${core.getInput('license')}
 URL:            ${core.getInput('website')}
 Source0:        %{name}-%{version}.tar.gz
-BuildArch:      ${core.getInput('architecture')}
 ${getSuggestedPackages()}
 
 %description
