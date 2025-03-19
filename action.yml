@@ -70,5 +70,5 @@ outputs:
   file:
     description: 'Resulting file'
 runs:
-  using: 'node12'
+  using: 'node20'
   main: 'dist/index.js'
