@@ -27632,6 +27632,7 @@ ${getSuggestedPackages()}
 %description
 ${core.getInput('description')}
 
+%define __os_install_post %{nil}
 %global debug_package %{nil}
 
 %prep
