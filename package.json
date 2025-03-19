@@ -7,7 +7,7 @@
   "author": "",
   "license": "Apache v2",
   "scripts": {
-    "build": "ncc build"
+    "build": "ncc build index.js"
   },
   "dependencies": {
     "@actions/core": "^1.11.1",
