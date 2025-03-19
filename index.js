@@ -83,6 +83,7 @@ ${core.getInput('description')}
 %build
 
 %install
+export DONT_STRIP=1
 #for the files, we just need everything, we can just push it all without concern
 rm -rf $RPM_BUILD_ROOT
 mkdir $RPM_BUILD_ROOT
